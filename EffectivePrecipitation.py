@@ -42,7 +42,7 @@ So yes we don't need to work with intra day data just yet.
 days = 30 #length of the arrays, how many days we're running this simulation
 
 #STEP 1: Generating Pd (daily precipitation) and ET0 arrays
-Pm_average = 4.2 #inches of rain that month
+Pm_average = 0 #inches of rain that month
 ET0_average = 0.13 #inches per day
 
 rng = np.random.default_rng(seed=691)
@@ -102,21 +102,22 @@ for i, ET in enumerate(ETc):
     I1_IrrTracker.append(I1_irrigation)
 
 
-#Irrigate to match the daily Irrigation Requirement
+#Irrigate to match the daily Irrigation Requirement of Previous Day
 Ir_capacity = Capacitance+0
 Ir_CapTracker = []
 Ir_IrrTracker = []
+Ir_irrigation = 0
 
 for i, ET in enumerate(ETc):
-    Ir_capacity += Pd[i]-ET
-    Ir_irrigation = 0
+    Ir_capacity += Pd[i]-ET+Ir_irrigation
+    Ir_IrrTracker.append(Ir_irrigation)
     if Ir_capacity <= Capacitance:
         Ir_irrigation = np.min([Capacitance-Ir_capacity,ET])
-        Ir_capacity += Ir_irrigation
     else:
         Ir_capacity=Capacitance
+        Ir_irrigation=0
     Ir_CapTracker.append(Ir_capacity)
-    Ir_IrrTracker.append(Ir_irrigation)
+    
 
 #Plotting
 x = np.linspace(1,30,30)
@@ -140,8 +141,17 @@ sip.legend()
 mli = axs[2]
 mli.plot(x,Ir_CapTracker,label="Current Capacity (in)")
 mli.plot(x,Ir_IrrTracker,label="Irrigation (in)")
-mli.set_title("Irrigate to match loss")
+mli.set_title("Irrigate to match yesterday's loss")
+
+# mli.plot(x,np.convolve(Ir_CapTracker,[.2,.2,.2,.2,.2],mode='same'),label="Moving Average")
+# That was to double check that one day offset irrigation didn't reduce current capacity over time
+# and it looks like it doesn't, which it shouldn't, so everything is good.
+
 mli.legend()
 
 plt.tight_layout()
 plt.show()
+
+
+#Next is adding the how many cycles a day measurement...that will probs have to be squared with precipitation of that day. 
+#   rough time for you, future paolo.
