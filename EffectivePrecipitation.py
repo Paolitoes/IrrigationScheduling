@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 field_area_unconverted = 6000 #ft**3
 field_area = field_area_unconverted*(12)**3 #inches**3
 
-swhc = 0.17 # inches per inches
+swhc = 0.1 # inches per inches
 
 '''
 first hit, the field should be calcualted all together. The water capacitance we care about depends  
@@ -19,7 +19,7 @@ So capacitance-of-interest, which we will just call capacitance here, is swhc*ro
 
 #example plant is stage 3 tomato, again
 Kc = 1 # dimensionless
-root_depth = 13 #inches
+root_depth = 6 #inches
 
 '''
 Next wee need the ET0 and Pm data. Since this is meant to be a system that takes in the current day data for precipitation
@@ -76,50 +76,96 @@ Capacitance = root_depth*swhc #units of inches
 #which makes 4% moisture in inches, (swhc/0.13)*0.04, lets call it swmc for soil water
 #minimum capacity
 
-swmc = (swhc/0.13)*0.04
-
-
-
-current_capacity = Capacitance+0
-cap_tracker = []
-cap_tracker.append(current_capacity)
-
-
 MAD = 0.5
-irrigation_threshold = ((swhc-swmc)*MAD+swmc)*root_depth
-irrigation_tracker = []
+
+#Irrigate Once soil has reached MAD from capacity
+#   Won't include cycles per day calcualtions, because, in this case, that will 
+#   only happen if the total daily irrigation requirement is larger than the 
+#   soil capacitance.
+
+I1_capacity = Capacitance+0
+I1_CapTracker = []
+I1_IrrTracker = []
+I1_threshold = (1-MAD)*swhc*root_depth
+print(I1_threshold)
 
 for i, ET in enumerate(ETc):
-    current_capacity = current_capacity-ET+Pd[i]
-    if current_capacity<=irrigation_threshold:
-        irrigation_tracker.append(Capacitance-current_capacity)
-        current_capacity=Capacitance+0
-    else:
-        irrigation_tracker.append(0)
-    
-    if current_capacity>=Capacitance:
-        current_capacity=Capacitance+0
-    
-    cap_tracker.append(current_capacity)
+    I1_capacity += Pd[i]-ET
+    I1_irrigation = 0
+    if I1_capacity>=Capacitance:
+        I1_capacity = Capacitance+0
+    elif I1_capacity<=I1_threshold:
+        I1_irrigation = Capacitance-I1_capacity
+        I1_capacity += I1_irrigation
 
-cap_x = np.linspace(0,30,31)
+    I1_CapTracker.append(I1_capacity)
+    I1_IrrTracker.append(I1_irrigation)
+
+# Quick Check Graphs
 x = np.linspace(1,30,30)
-
-
-fig, axs = plt.subplots(4,1)
-axs[0].plot(x,ET0)
-axs[0].set_title("Daily Evapotranspiration")
-axs[1].plot(x,Pd)
-axs[1].set_title("Precipitation")
-axs[2].plot(x,irrigation_tracker)
-axs[2].set_title("Irrigation Amount")
-axs[3].plot(cap_x,cap_tracker)
-axs[3].hlines(swmc*root_depth,0,30)
-axs[3].hlines(Capacitance,0,30)
-axs[3].hlines(irrigation_threshold,0,30)
-axs[3].set_title(r"'Inches of water' in soil")
-plt.tight_layout()
+plt.figure()
+plt.plot(x,I1_CapTracker,label="Occupance (in)")
+plt.plot(x,I1_IrrTracker,label="Irrigation (in)")
+plt.legend()
 plt.show()
+    
+
+
+
+
+
+#Irrigate to match the daily Irrigation Requirement
+
+
+
+
+
+
+#Old Stuff
+# swmc = (swhc/0.13)*0.04
+
+
+
+# current_capacity = Capacitance+0
+# cap_tracker = []
+# cap_tracker.append(current_capacity)
+
+
+# MAD = 0.5
+# irrigation_threshold = ((swhc-swmc)*MAD+swmc)*root_depth
+# irrigation_tracker = []
+
+# for i, ET in enumerate(ETc):
+#     current_capacity = current_capacity-ET+Pd[i]
+#     if current_capacity<=irrigation_threshold:
+#         irrigation_tracker.append(Capacitance-current_capacity)
+#         current_capacity=Capacitance+0
+#     else:
+#         irrigation_tracker.append(0)
+    
+#     if current_capacity>=Capacitance:
+#         current_capacity=Capacitance+0
+    
+#     cap_tracker.append(current_capacity)
+
+# cap_x = np.linspace(0,30,31)
+# x = np.linspace(1,30,30)
+
+
+# fig, axs = plt.subplots(4,1)
+# axs[0].plot(x,ET0)
+# axs[0].set_title("Daily Evapotranspiration")
+# axs[1].plot(x,Pd)
+# axs[1].set_title("Precipitation")
+# axs[2].plot(x,irrigation_tracker)
+# axs[2].set_title("Irrigation Amount")
+# axs[3].plot(cap_x,cap_tracker)
+# axs[3].hlines(swmc*root_depth,0,30)
+# axs[3].hlines(Capacitance,0,30)
+# axs[3].hlines(irrigation_threshold,0,30)
+# axs[3].set_title(r"'Inches of water' in soil")
+# plt.tight_layout()
+# plt.show()
 
 
 '''
