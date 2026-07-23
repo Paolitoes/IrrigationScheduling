@@ -42,7 +42,7 @@ So yes we don't need to work with intra day data just yet.
 days = 30 #length of the arrays, how many days we're running this simulation
 
 #STEP 1: Generating Pd (daily precipitation) and ET0 arrays
-Pm_average = 0 #inches of rain that month
+Pm_average = 4.2 #inches of rain that month
 ET0_average = 0.13 #inches per day
 
 rng = np.random.default_rng(seed=691)
@@ -101,98 +101,47 @@ for i, ET in enumerate(ETc):
     I1_CapTracker.append(I1_capacity)
     I1_IrrTracker.append(I1_irrigation)
 
-# Quick Check Graphs
-x = np.linspace(1,30,30)
-plt.figure()
-plt.plot(x,I1_CapTracker,label="Occupance (in)")
-plt.plot(x,I1_IrrTracker,label="Irrigation (in)")
-plt.legend()
-plt.show()
-    
-
-
-
-
 
 #Irrigate to match the daily Irrigation Requirement
+Ir_capacity = Capacitance+0
+Ir_CapTracker = []
+Ir_IrrTracker = []
 
+for i, ET in enumerate(ETc):
+    Ir_capacity += Pd[i]-ET
+    Ir_irrigation = 0
+    if Ir_capacity <= Capacitance:
+        Ir_irrigation = np.min([Capacitance-Ir_capacity,ET])
+        Ir_capacity += Ir_irrigation
+    else:
+        Ir_capacity=Capacitance
+    Ir_CapTracker.append(Ir_capacity)
+    Ir_IrrTracker.append(Ir_irrigation)
 
+#Plotting
+x = np.linspace(1,30,30)
 
+fig, axs = plt.subplots(3,1)
+#Effective Precipitation and ET Plot
+epp = axs[0]
+epp.plot(x,Pd,label="Effective Precipitation (in)")
+epp.plot(x,ETc,label="Evapotranspiration (in)")
+epp.set_title("Water I/O")
+epp.legend()
 
+#Single Irrigation Plot
+sip = axs[1]
+sip.plot(x,I1_CapTracker,label="Current Capacity (in)")
+sip.plot(x,I1_IrrTracker,label="Irrigation (in)")
+sip.set_title(f"Irrigate at MAD of {MAD}")
+sip.legend()
 
+#Match-loss Irrigation
+mli = axs[2]
+mli.plot(x,Ir_CapTracker,label="Current Capacity (in)")
+mli.plot(x,Ir_IrrTracker,label="Irrigation (in)")
+mli.set_title("Irrigate to match loss")
+mli.legend()
 
-#Old Stuff
-# swmc = (swhc/0.13)*0.04
-
-
-
-# current_capacity = Capacitance+0
-# cap_tracker = []
-# cap_tracker.append(current_capacity)
-
-
-# MAD = 0.5
-# irrigation_threshold = ((swhc-swmc)*MAD+swmc)*root_depth
-# irrigation_tracker = []
-
-# for i, ET in enumerate(ETc):
-#     current_capacity = current_capacity-ET+Pd[i]
-#     if current_capacity<=irrigation_threshold:
-#         irrigation_tracker.append(Capacitance-current_capacity)
-#         current_capacity=Capacitance+0
-#     else:
-#         irrigation_tracker.append(0)
-    
-#     if current_capacity>=Capacitance:
-#         current_capacity=Capacitance+0
-    
-#     cap_tracker.append(current_capacity)
-
-# cap_x = np.linspace(0,30,31)
-# x = np.linspace(1,30,30)
-
-
-# fig, axs = plt.subplots(4,1)
-# axs[0].plot(x,ET0)
-# axs[0].set_title("Daily Evapotranspiration")
-# axs[1].plot(x,Pd)
-# axs[1].set_title("Precipitation")
-# axs[2].plot(x,irrigation_tracker)
-# axs[2].set_title("Irrigation Amount")
-# axs[3].plot(cap_x,cap_tracker)
-# axs[3].hlines(swmc*root_depth,0,30)
-# axs[3].hlines(Capacitance,0,30)
-# axs[3].hlines(irrigation_threshold,0,30)
-# axs[3].set_title(r"'Inches of water' in soil")
-# plt.tight_layout()
-# plt.show()
-
-
-'''
-OKAY, so the problem might be that the drip irrigation paper sets a the 8 inch wetted bulb as the space that needs to be kepts at field capacity. 
-which makes sense, since the the concentration of the water will increase the longer the drip irrigation system is on near the actuall drip, 
-leaving more of the water entering the center to percolate below the root, where the plant cannot reach it. 
-
-Claude wrote me something but when you decrease the MAD you get even more cycles a day instead of converging to the 9 cycles a day from the drip irrigation paper
-but I do like how it made the graphs look prettier--its like in minecraft, when we just build a bunch of farms and don't stop to make them look pretty.
-Like no, making them look pretty matters too.
-'''
-
-'''
-Okay this is the next day and it looks like yes, both papers are doing a few different things. The drip irrigation paper, AE50000, irrigates every day to
-match the ETc of the plant that day, and since its a drip irrigation system its somewhat slow which gives it the long daily total irrigation time, then 
-paper split its cycles so that they just long enough for their total water output to be equal to the volume of water needed to fill the pre-defined area
-of influence (which we assume is motivated by the fact that the water concentration is largest at the actuall drip point and at some point that concentration
-will overcome the SWHC such that the water starts to percolate into the unreachable root depths) to SWHC, which is 50% of the SWHC in this case since the 
-soil was assuming to be at 50% PAW initially. 
-
-Then it splits the cycles evenly throughout the day. I think the mis assumptions between the papers is how much water the soil is losing at any given point.
-I mean the precipetation paper I think only has the ETc and ET0 as what takes water from the soil, and the drip irrigation paper either take it so the small 
-cylinder of influence loses half its water in a few hours or that water now spread over the soil so the concentration in the imediate surrounding is low 
-enough again that we can drip water in without losing it to percolation... We'd have to check how far away the drip irrigation holes are to see if there 
-really is enough space where the water can be spread through... Alternatively its to spread through the cylinder of influence, since drip irrigation is
-all at single points and doesn't spread its water like other irrigation methods...Lets look at the hole distances
-
-The distance between emmiters in the same row/tape is 12 inches. the distance between rows is 6 feet, lets assume the beds are 3 ft long and have two drip 
-tapes through it. 
-'''
+plt.tight_layout()
+plt.show()
